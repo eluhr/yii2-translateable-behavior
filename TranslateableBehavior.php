@@ -93,6 +93,11 @@ class TranslateableBehavior extends Behavior
      */
     private $_fallbackLanguage;
 
+    /**
+     * @var array Static cache for active record models to prevent duplicate fetch
+     */
+    private static $_translationModelCache = [];
+
 
     /**
      * @inheritdoc
@@ -436,11 +441,9 @@ class TranslateableBehavior extends Behavior
      */
     private function loadTranslation($language)
     {
-        /** @var $translation ActiveRecord */
-        $translation = null;
         /** @var \yii\db\ActiveQuery $relation */
         $relation = $this->owner->getRelation($this->relation);
-        /** @var ActiveRecord $class */
+        /** @var ActiveRecord|string $class */
         $class = $relation->modelClass;
         $oldAttributes = $this->owner->getOldAttributes();
         $searchFields = [$this->languageField => $language];
@@ -453,7 +456,11 @@ class TranslateableBehavior extends Behavior
             }
         }
 
-        $translation = $class::findOne($searchFields);
+        $index = md5($class.serialize($searchFields));
+        if (!isset(self::$_translationModelCache[$index])) {
+            self::$_translationModelCache[$index] = $class::findOne($searchFields);
+        }
+        $translation = self::$_translationModelCache[$index];
 
         if ($translation === null) {
             $translation = new $class;
@@ -481,4 +488,4 @@ class TranslateableBehavior extends Behavior
             }
         }
     }
-} 
+}
